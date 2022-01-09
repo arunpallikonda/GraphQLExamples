@@ -1,1 +1,166 @@
 
+1) Permissions for copying objects from prod application source bucket to prod TDM target bucket
+
+SourceBucketName - app-source-prod-bucket
+TargetBucketName - tdm-target-prod-bucket
+
+
+#######Car role on app account permissions:
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:GetObjectTagging",
+                "s3:ListBucket",
+                "s3:GetObjectVersion", ##### Advanced permissions
+                "s3:GetObjectVersionTagging", ##### Advanced permissions
+                "s3:GetObjectVersionAcl", ##### Advanced permissions
+                "s3:GetObjectAcl", ##### Advanced permissions
+            ],
+            "Resource": [
+                "arn:aws:s3:::app-source-prod-bucket", ##### Needed for ListBucket access
+                "arn:aws:s3:::app-source-prod-bucket/*"
+            ]
+        },
+        {
+            "Sid": "VisualEditor1",
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject",
+                "s3:PutObjectTagging",
+                "s3:PutObjectAcl", ##### Advanced permissions
+                "s3:PutObjectRetention" ##### Advanced permissions
+            ],
+            "Resource": "arn:aws:s3:::tdm-target-prod-bucket/*"
+        }
+    ]
+}
+
+#######Trusted entity on car role:
+arn:aws:iam::{TDMAccountNumber}:role/service-role/{TDMLambdaRole}
+
+
+#######Lambda Role sts assume permissions on CAR role
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": "sts:AssumeRole",
+            "Resource": "arn:aws:iam::{SourceApplicationAccountNumber}:role/{SourceCARRole}"
+        }
+    ]
+}
+
+
+
+#######Bucket policy on targetBucket (TDM bucket) to allow car role to copy from source to TDM:
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "PolicyForAllowUploadWithACL",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": "arn:aws:iam::{SourceApplicationAccountNumber}:role/{CARroleFromSourceAccount}"
+            },
+            "Action": [
+                "s3:PutObject",
+                "s3:PutObjectTagging"
+            ],
+            "Resource": "arn:aws:s3:::tdm-target-prod-bucket/*"
+        }
+    ]
+}
+
+
+
+
+
+
+
+2) Permissions for copying objects from TDM bucket as source to Application buckets as target
+Assuming that we will assume target CAR role for copying objects from TDM source to application target
+
+Source TDM bucket: tdm-source-prod-bucket
+Target Application bucket: app-target-nonprod-bucket
+
+#######Car role on app account permissions:
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:GetObjectTagging",
+                "s3:ListBucket",
+                "s3:GetObjectVersion", ##### Advanced permissions
+                "s3:GetObjectVersionTagging", ##### Advanced permissions
+                "s3:GetObjectVersionAcl", ##### Advanced permissions
+                "s3:GetObjectAcl", ##### Advanced permissions
+            ],
+            "Resource": [
+                "arn:aws:s3:::tdm-source-prod-bucket/*",
+                "arn:aws:s3:::tdm-source-prod-bucket"
+            ]
+        },
+        {
+            "Sid": "VisualEditor1",
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject",
+                "s3:PutObjectTagging",
+                "s3:PutObjectAcl", ##### Advanced permissions
+                "s3:PutObjectRetention" ##### Advanced permissions
+            ],
+            "arn:aws:s3:::app-target-nonprod-bucket/*"
+        }
+    ]
+}
+
+
+#######Bucket policy on sourceBucket (TDM bucket) to allow car role to copy from TDM source to Application bucket:
+This is needed to allow target application CAR role to get objects from source TDM bucket
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "PolicyForAllowUploadWithACL",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": "arn:aws:iam::{SourceApplicationAccountNumber}:role/{CARroleFromSourceAccount}"
+            },
+            "Action": [
+                 "s3:GetObject",
+                 "s3:GetObjectTagging"
+            ],
+            "Resource": "arn:aws:s3:::tdm-source-prod-bucket/*"
+        }
+    ]
+}
+
+#######Trusted entity on car role:
+arn:aws:iam::{TDMAccountNumber}:role/service-role/{TDMLambdaRole}
+
+
+#######Lambda Role sts assume permissions on CAR role
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": "sts:AssumeRole",
+            "Resource": "arn:aws:iam::{TargetApplicationAccountNumber}:role/{TargetApplicationCarRole}"
+        }
+    ]
+}
+
