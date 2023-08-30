@@ -16,8 +16,22 @@ def compare_attributes(item1, item2):
     for key in item1:
         if key not in item2:
             return False
-        if item1[key] != item2[key]:
+        
+        value1 = item1[key]
+        value2 = item2[key]
+        
+        if isinstance(value1, dict) and isinstance(value2, dict):
+            if not compare_attributes(value1, value2):
+                return False
+        elif isinstance(value1, list) and isinstance(value2, list):
+            if len(value1) != len(value2):
+                return False
+            for v1, v2 in zip(value1, value2):
+                if not compare_attributes(v1, v2):
+                    return False
+        elif value1 != value2:
             return False
+    
     return True
 
 def get_all_items(table_name):
