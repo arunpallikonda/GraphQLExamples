@@ -1,1 +1,59 @@
-Sample
+import boto3
+
+# Replace with your table names
+source_table_name = "source_table"
+target_table_name = "target_table"
+
+dynamodb = boto3.client("dynamodb")
+
+def get_primary_key(table_name):
+    response = dynamodb.describe_table(TableName=table_name)
+    key_schema = response["Table"]["KeySchema"]
+    primary_key = [item["AttributeName"] for item in key_schema if item["KeyType"] == "HASH"]
+    return primary_key[0] if primary_key else None
+
+def compare_attributes(item1, item2):
+    for key in item1:
+        if key not in item2:
+            return False
+        if item1[key] != item2[key]:
+            return False
+    return True
+
+def get_all_items(table_name):
+    items = []
+    scan_params = {"TableName": table_name}
+    while True:
+        response = dynamodb.scan(**scan_params)
+        items.extend(response.get("Items", []))
+        exclusive_start_key = response.get("LastEvaluatedKey")
+        if exclusive_start_key is None:
+            break
+        scan_params["ExclusiveStartKey"] = exclusive_start_key
+    return items
+
+source_primary_key = get_primary_key(source_table_name)
+target_primary_key = get_primary_key(target_table_name)
+
+if source_primary_key != target_primary_key:
+    print("Primary keys in source and target tables do not match.")
+else:
+    source_items = get_all_items(source_table_name)
+    target_items = get_all_items(target_table_name)
+
+    source_keys = [item[source_primary_key] for item in source_items]
+    target_keys = [item[target_primary_key] for item in target_items]
+
+    if set(source_keys) != set(target_keys):
+        print("Primary key values do not match between source and target tables.")
+    else:
+        mismatched_items = []
+        for key in source_keys:
+            source_item = next(item for item in source_items if item[source_primary_key] == key)
+            target_item = next(item for item in target_items if item[target_primary_key] == key)
+            if not compare_attributes(source_item, target_item):
+                mismatched_items.append(key)
+        if not mismatched_items:
+            print("Both tables have matching data.")
+        else:
+            print("Data mismatch for keys:", mismatched_items)
